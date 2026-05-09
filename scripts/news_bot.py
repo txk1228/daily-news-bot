@@ -12,8 +12,6 @@ import time
 import logging
 import requests
 from datetime import datetime
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 # 配置日志
 logging.basicConfig(
@@ -225,6 +223,9 @@ def job_news_push():
 
 def main():
     """主函数"""
+    from apscheduler.schedulers.blocking import BlockingScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
     logger.info("🚀 每日新闻推送机器人启动")
     logger.info(f"Webhook: {FEISHU_WEBHOOK_URL[:50]}...")
     logger.info(f"签名校验: 已启用")
