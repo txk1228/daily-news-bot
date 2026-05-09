@@ -12,6 +12,9 @@ coze-coding-dev-sdk>=0.5.0,<1
 # 运行时上下文工具
 coze-coding-utils>=0.2.7,<1
 
-# Coze SDK 传递依赖缺失，显式声明
+# Coze SDK 传递依赖缺失，显式声明（SDK 运行时需要但不声明）
 beautifulsoup4
 python-pptx
+openpyxl
+pypdf
+docx2python
