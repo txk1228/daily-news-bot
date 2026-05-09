@@ -1,0 +1,20 @@
+# Render Blueprint - 每日科技新闻推送机器人（防风控版）
+# 关键词：小可每日资讯 | 自动驾驶推送
+# 签名校验：已启用
+
+services:
+  - type: cron
+    name: daily-news-bot
+    runtime: python
+    region: singapore
+    schedule: "30 23 * * *"  # UTC 23:30 = 北京时间 07:30
+    owner: me@example.com  # 替换为你的邮箱
+    envVars:
+      - key: FEISHU_WEBHOOK_URL
+        value: "your_feishu_webhook_url"
+      - key: FEISHU_SECRET
+        value: "your_feishu_secret"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/news_bot.py
