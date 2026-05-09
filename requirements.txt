@@ -14,3 +14,4 @@ coze-coding-utils>=0.2.7,<1
 
 # Coze SDK 传递依赖缺失，显式声明
 beautifulsoup4
+python-pptx
