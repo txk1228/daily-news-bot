@@ -48,3 +48,8 @@ __pycache__/
 *.pptx
 *.xlsx
 *.csv
+
+# 可能含 Webhook/密钥的本地截图，勿提交
+assets/image_*.png
+assets/效果图.png
+
