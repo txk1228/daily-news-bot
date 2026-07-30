@@ -1,0 +1,19 @@
+# Render Blueprint - 每日科技新闻推送机器人
+# 通过公开 RSS 拉取资讯，签名后推送到飞书群
+
+services:
+  - type: cron
+    name: daily-news-bot
+    runtime: python
+    region: singapore
+    schedule: "30 23 * * *"  # UTC 23:30 = 北京时间 07:30
+    owner: me@example.com  # 替换为你的邮箱
+    envVars:
+      - key: FEISHU_WEBHOOK_URL
+        sync: false
+      - key: FEISHU_SECRET
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/news_bot.py --once --topics "AI大模型,自动驾驶"
