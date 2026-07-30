@@ -5,7 +5,7 @@
 ## 效果预览
 
 推送到飞书后大致如下（标题含关键词「小可每日资讯」，按主题分块展示标题 + 链接）：
-![Uploading image.png…]()
+![Uploading image.png…](https://github.com/txk1228/daily-news-bot/blob/main/assets/feishu-demo.png)
 
 飞书推送效果
 
