@@ -2,7 +2,7 @@ name: Daily News Push
 
 on:
   schedule:
-    # 每天北京时间 07:30 执行（UTC 前一天 23:30）
+    # 每天北京时间 07:30 执行（UTC cron: 30 23 * * *）
     - cron: '30 23 * * *'
   workflow_dispatch:  # 允许手动触发
 
@@ -28,5 +28,6 @@ jobs:
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+          TOPICS: "AI大模型,具身智能,每日财经热点"
         run: |
           python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"

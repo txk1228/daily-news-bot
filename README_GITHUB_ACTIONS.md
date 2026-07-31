@@ -2,6 +2,8 @@
 
 用 GitHub Actions 每天定时拉取公开 RSS 新闻，并推送到飞书群。无需 Coze API Key。
 
+**更省事**：在仓库根目录运行 `python scripts/setup_bot.py`（可加 `--apply-git`），一次配好主题、推送时间与 Secrets。详见主 [README.md](README.md)「快速开始」。
+
 ## 方案优势
 
 | 对比 | Render 免费版 | GitHub Actions |

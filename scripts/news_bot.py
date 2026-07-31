@@ -64,6 +64,35 @@ DEFAULT_TOPICS = ("AI大模型", "具身智能", "每日财经热点")
 MIN_TOPICS = 1
 MAX_TOPICS = 5
 
+# 本地定时默认（可被 .env 的 PUSH_HOUR / PUSH_MINUTE 覆盖）
+DEFAULT_PUSH_HOUR = 7
+DEFAULT_PUSH_MINUTE = 30
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("环境变量 %s=%r 非法，使用默认 %d", name, raw, default)
+        return default
+
+
+PUSH_HOUR = _env_int("PUSH_HOUR", DEFAULT_PUSH_HOUR)
+PUSH_MINUTE = _env_int("PUSH_MINUTE", DEFAULT_PUSH_MINUTE)
+if not (0 <= PUSH_HOUR <= 23 and 0 <= PUSH_MINUTE <= 59):
+    logger.warning(
+        "PUSH_HOUR/PUSH_MINUTE 超出范围 (%d:%02d)，回退到 %d:%02d",
+        PUSH_HOUR,
+        PUSH_MINUTE,
+        DEFAULT_PUSH_HOUR,
+        DEFAULT_PUSH_MINUTE,
+    )
+    PUSH_HOUR = DEFAULT_PUSH_HOUR
+    PUSH_MINUTE = DEFAULT_PUSH_MINUTE
+
 RSS_COUNT = 3
 REQUEST_TIMEOUT = 15
 FETCH_RETRIES = 2
@@ -164,16 +193,20 @@ def validate_config() -> None:
         missing.append("FEISHU_SECRET")
     if missing:
         logger.error(
-            "缺少必要环境变量: %s。请参考 .env.example 配置后重试。",
+            "缺少必要环境变量: %s。请运行 python scripts/setup_bot.py 或参考 .env.example。",
             ", ".join(missing),
         )
         sys.exit(1)
 
 
 def parse_topics(raw: str | None) -> list[str]:
-    """解析逗号分隔主题，数量须在 1–5；去空白、去空项、保序去重。"""
+    """解析逗号分隔主题。优先：参数 > 环境变量 TOPICS > 代码默认。"""
     if raw is None or not str(raw).strip():
-        return list(DEFAULT_TOPICS)
+        env_topics = os.getenv("TOPICS", "").strip()
+        if env_topics:
+            raw = env_topics
+        else:
+            return list(DEFAULT_TOPICS)
 
     topics: list[str] = []
     seen: set[str] = set()
@@ -563,11 +596,12 @@ def job_news_push(topics: list[str]) -> int:
 
 
 def run_schedule(topics: list[str]) -> None:
-    """长驻：每天北京时间 07:30 推送。"""
+    """长驻：每天按 PUSH_HOUR:PUSH_MINUTE（北京时间）推送。"""
     from apscheduler.schedulers.blocking import BlockingScheduler
     from apscheduler.triggers.cron import CronTrigger
 
     webhook_preview = FEISHU_WEBHOOK_URL[:50] if FEISHU_WEBHOOK_URL else "(empty)"
+    push_label = f"{PUSH_HOUR:02d}:{PUSH_MINUTE:02d}"
     logger.info("🚀 每日新闻推送机器人启动（定时模式）")
     logger.info("Webhook: %s...", webhook_preview)
     logger.info("签名校验: 已启用")
@@ -577,12 +611,12 @@ def run_schedule(topics: list[str]) -> None:
     scheduler = BlockingScheduler(timezone="Asia/Shanghai")
     scheduler.add_job(
         job_news_push,
-        CronTrigger(hour=7, minute=30, timezone="Asia/Shanghai"),
+        CronTrigger(hour=PUSH_HOUR, minute=PUSH_MINUTE, timezone="Asia/Shanghai"),
         args=[topics],
         id="daily_news_push",
         name="每日新闻推送",
     )
-    logger.info("⏰ 定时任务已添加：每天北京时间 07:30")
+    logger.info("⏰ 定时任务已添加：每天北京时间 %s", push_label)
     logger.info("📡 等待执行中...")
 
     try:
@@ -603,7 +637,10 @@ def parse_args() -> argparse.Namespace:
     mode.add_argument(
         "--schedule",
         action="store_true",
-        help="长驻定时：每天北京时间 07:30 推送",
+        help=(
+            f"长驻定时：每天北京时间 {PUSH_HOUR:02d}:{PUSH_MINUTE:02d} 推送"
+            "（可由 .env 的 PUSH_HOUR/PUSH_MINUTE 配置）"
+        ),
     )
     parser.add_argument(
         "--topics",
@@ -611,7 +648,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             f'推送主题，英文逗号分隔，{MIN_TOPICS}–{MAX_TOPICS} 个；'
-            f'默认 "{",".join(DEFAULT_TOPICS)}"'
+            f'优先 CLI，否则读环境变量 TOPICS，默认 "{",".join(DEFAULT_TOPICS)}"'
         ),
     )
     return parser.parse_args()

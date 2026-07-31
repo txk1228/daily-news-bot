@@ -1,8 +1,54 @@
 # 每日科技新闻推送机器人
 
-按自定义主题拉取公开 RSS 资讯，签名后推送到**飞书群**。无需 Coze / OpenAI API Key。
+按自定义主题拉取公开 RSS 资讯，签名后推送到**飞书**。无需 Coze / OpenAI API Key。
 
-**推荐用法**：用 [GitHub Actions](https://github.com/txk1228/daily-news-bot/actions) 云端定时 / 手动推送——**电脑关机也没关系**。本地 `--schedule` 仅作备选。
+## 快速开始（推荐：一键配置）
+
+先准备好飞书自定义机器人的 **Webhook** 与 **签名密钥**（见下方第 1 节），然后：
+
+```bash
+python -m venv .venv
+# Windows
+.\.venv\Scripts\pip.exe install -r requirements.txt
+.\.venv\Scripts\python.exe scripts\setup_bot.py
+
+# Linux / macOS
+source .venv/bin/activate
+pip install -r requirements.txt
+python scripts/setup_bot.py
+```
+
+![一键配置交互示例](assets/setup-bot-demo.png)
+
+按提示填写：
+
+1. 飞书 Webhook / Secret（已有 `.env` 可回车沿用）
+2. 关心的主题（1–5 个，英文逗号分隔）
+3. 每天推送时间（北京时间 `HH:MM`）
+
+脚本会自动：
+
+- 写入本地 `.env`（含 `TOPICS` / `PUSH_HOUR` / `PUSH_MINUTE`）
+- 更新 [`.github/workflows/daily_news.yml`](.github/workflows/daily_news.yml) 的定时与主题
+- 若已安装并登录 [`gh`](https://cli.github.com/)：写入 GitHub Secrets
+
+一键同步到 GitHub 并试推一次：
+
+```bash
+python scripts/setup_bot.py --apply-git
+```
+
+之后**不必开机**：靠 GitHub Actions 按你设的时间自动推；也可随时在 [Actions](https://github.com/txk1228/daily-news-bot/actions) 点 **Run workflow**。
+
+本地立刻试推：
+
+```bash
+python scripts/news_bot.py --once
+```
+
+---
+
+**推荐用法**：GitHub Actions 云端定时 / 手动推送——**电脑关机也没关系**。本地 `--schedule` 仅作备选。
 
 ## 效果预览
 
@@ -54,8 +100,9 @@
 | 消息排版 | 各板块下 **1）2）3）** 分点，带 `[来源]` 与链接 |
 | 新闻源 | 主题专业源优先（财经→虎嗅）→ 定制 Google 检索 → IT之家 / 36氪 / Solidot |
 | 飞书安全 | 自定义机器人 **Webhook + 签名校验**（可配合自定义关键词） |
-| **云端（推荐）** | GitHub Actions：每天约北京时间 **07:30** 自动推；也可随时点 **Run workflow** |
-| 本地 | `--once` 推一次；`--schedule` 需进程一直挂着（关机/休眠会停） |
+| **云端（推荐）** | GitHub Actions：按 `.env` / 一键配置的时间自动推；也可随时点 **Run workflow** |
+| **一键配置** | `python scripts/setup_bot.py`：主题 + 推送时间 + 飞书凭证一次配齐 |
+| 本地 | `--once` 推一次；`--schedule` 按 `PUSH_HOUR:PUSH_MINUTE` 长驻（关机/休眠会停） |
 
 ---
 
@@ -76,6 +123,7 @@
 1. **签名校验**（必开）  
    - 复制生成的 **密钥（secret）**
 2. **自定义关键词**（建议开启）  
+   eg:
    - 至少包含：`小可每日资讯`（脚本消息标题里会带上该词）  
    - 可选再加：`自动驾驶推送`
 
@@ -89,7 +137,15 @@
 | `19021` sign match fail | 签名密钥不对 / 未开签名 | 核对 Secret，确认已开启签名校验 |
 | `19024` Key Words Not Found | 开了关键词但正文不含任一关键词 | 关键词加上 `小可每日资讯`，或关闭关键词校验 |
 
-### 1.3 本地 `.env`（仅本地运行需要）
+### 1.3 本地配置（推荐一键脚本）
+
+```bash
+python scripts/setup_bot.py
+# 可选：提交工作流并触发一次云端试推
+python scripts/setup_bot.py --apply-git
+```
+
+也可手动复制模板后编辑：
 
 ```bash
 # Windows PowerShell
@@ -102,18 +158,28 @@ cp .env.example .env
 ```env
 FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/你的真实ID
 FEISHU_SECRET=你的真实签名密钥
+TOPICS=AI大模型,具身智能,每日财经热点
+PUSH_HOUR=7
+PUSH_MINUTE=30
 ```
 
-主题**不写在** `.env` 里。云端请把同样两项配到 GitHub Secrets（见下一节）。
+- `TOPICS`：未传 `--topics` 时使用
+- `PUSH_HOUR` / `PUSH_MINUTE`：本地 `--schedule` 的北京时间
+- 云端定时以工作流里的 `cron` 为准（用 `setup_bot.py` 会自动改好）
+- 飞书两项还须出现在 GitHub Secrets（setup 在已登录 `gh` 时会自动写入）
 
 ---
 
 ## 2. GitHub Actions 云端推送（推荐，不必开机）
 
-仓库已包含工作流 [`.github/workflows/daily_news.yml`](.github/workflows/daily_news.yml)。配置好 Secrets 后：
+仓库已包含工作流 [`.github/workflows/daily_news.yml`](.github/workflows/daily_news.yml)。
 
-- **自动**：每天约北京时间 **07:30** 推送（GitHub 定时偶有延迟，属正常）
-- **手动**：打开 Actions → **Run workflow**，随时补推一次——**不需要电脑开机或挂着终端**
+**最省事**：跑 `python scripts/setup_bot.py`（或加 `--apply-git`），主题、推送时间、Secrets 一次配齐。
+
+手动时：
+
+- **自动**：按工作流里配置的北京时间推送（GitHub 定时偶有延迟，属正常）
+- **手动**：打开 Actions → **Run workflow**，随时补推——**不需要电脑开机**
 
 ### 2.1 配置 Secrets（只需一次）
 
@@ -152,7 +218,7 @@ on:
   workflow_dispatch:  # 允许网页 / gh 手动触发
 ```
 
-当前默认主题（可在 `daily_news.yml` 里改）：
+当前主题与定时建议用 `setup_bot.py` 改；也可手改 `daily_news.yml` 中的 `cron` 与 `--topics`。
 
 ```bash
 python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
@@ -204,14 +270,20 @@ python scripts/news_bot.py --once
 
 ### 3.3 自定义主题
 
-主题数量 **1–5**，英文逗号分隔；不传则默认 `AI大模型,具身智能,每日财经热点`。
+主题数量 **1–5**，英文逗号分隔。优先级：`--topics` > `.env` 的 `TOPICS` > 代码默认。
 
 ```bash
 python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
 python scripts/news_bot.py --once --topics "量子计算,机器人"
+# 不传 --topics 时使用 .env 里的 TOPICS
+python scripts/news_bot.py --once
 ```
 
-默认主题带同义词过滤（如「大模型」「人形机器人」「融资/财报」等）；财经板块另走虎嗅等专业源。
+默认主题带同义词过滤（如「大模型」「人形机器人」「融资/财报」等）；财经板块另走虎嗅等专业源。改主题/时间请优先：
+
+```bash
+python scripts/setup_bot.py
+```
 
 ### 3.4 本地长驻定时（不推荐作为主力）
 
@@ -219,7 +291,7 @@ python scripts/news_bot.py --once --topics "量子计算,机器人"
 python scripts/news_bot.py --schedule
 ```
 
-进程必须一直运行。日常请用 **第 2 节 GitHub Actions**。
+按 `.env` 中 `PUSH_HOUR` / `PUSH_MINUTE`（默认 07:30）每天推送，进程必须一直运行。日常请用 **第 2 节 GitHub Actions**。
 
 ---
 
@@ -254,17 +326,21 @@ python scripts/news_bot.py --schedule
 
 | 命令 | 作用 |
 |------|------|
+| `python scripts/setup_bot.py` | 一键配置主题、推送时间、飞书凭证 |
+| `python scripts/setup_bot.py --apply-git` | 同上，并 commit/push 工作流 + 触发试推 |
 | `python scripts/news_bot.py --once` | 本地推送一次后退出 |
-| `python scripts/news_bot.py --schedule` | 本地每天 07:30（需进程常驻） |
-| `--topics "主题1,主题2"` | 指定 1–5 个主题 |
+| `python scripts/news_bot.py --schedule` | 本地按 `PUSH_HOUR:PUSH_MINUTE` 长驻 |
+| `--topics "主题1,主题2"` | 指定 1–5 个主题（覆盖 `.env`） |
 | Actions → **Run workflow** | 云端立刻推一次（不必开机） |
 
-环境变量 / Secrets：
+环境变量 / Secrets（见 `.env.example`）：
 
 | 变量 | 是否必填 | 说明 |
 |------|----------|------|
 | `FEISHU_WEBHOOK_URL` | 是 | 飞书自定义机器人 Webhook |
 | `FEISHU_SECRET` | 是 | 签名校验密钥 |
+| `TOPICS` | 否 | 默认主题列表（逗号分隔） |
+| `PUSH_HOUR` / `PUSH_MINUTE` | 否 | 本地定时北京时间（默认 7 / 30） |
 
 ---
 
