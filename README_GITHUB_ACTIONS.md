@@ -34,24 +34,25 @@
 
 ### 第三步：自定义主题（可选）
 
-编辑 [`.github/workflows/daily_news.yml`](.github/workflows/daily_news.yml) 中的运行命令，通过 `--topics` 指定 1–5 个主题（英文逗号分隔）。不传则默认 `AI大模型,自动驾驶`。
+编辑 [`.github/workflows/daily_news.yml`](.github/workflows/daily_news.yml) 中的运行命令，通过 `--topics` 指定 1–5 个主题（英文逗号分隔）。不传则默认 `AI大模型,具身智能,每日财经热点`。
 
 ```yaml
 run: |
-  python scripts/news_bot.py --once --topics "AI大模型,自动驾驶,芯片"
+  python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
 ```
 
 ### 第四步：验证部署
 
 1. 打开仓库 **Actions** → **Daily News Push**
-2. **Run workflow** → 手动跑一次
+2. **Run workflow** → 手动跑一次（**不必开机**，在网页上点即可）
 3. 查看日志，并确认飞书群收到消息
 
 ---
 
 ## 完成后
 
-- 每天北京时间 **07:30** 自动推送
+- 每天北京时间约 **07:30** 自动推送（GitHub 定时偶有延迟）
+- 随时可在 Actions 点 **Run workflow** 补推
 - 电脑关机也不影响
 
 ## 修改推送时间
@@ -78,7 +79,7 @@ on:
 cp .env.example .env   # 填入飞书配置后
 pip install -r requirements.txt
 # 需先 export / 设置环境变量，或在 shell 中加载 .env
-python scripts/news_bot.py --once --topics "AI大模型,自动驾驶"
+python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
 ```
 
 ## 项目文件

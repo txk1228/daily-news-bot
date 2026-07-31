@@ -4,7 +4,7 @@
 通过公开 RSS 按自定义主题拉取资讯，签名后推送到飞书群。
 用法:
   python scripts/news_bot.py --once
-  python scripts/news_bot.py --once --topics "AI大模型,自动驾驶,芯片"
+  python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
   python scripts/news_bot.py --schedule --topics "量子计算,机器人"
 """
 from __future__ import annotations
@@ -60,7 +60,7 @@ FEISHU_SECRET = os.getenv("FEISHU_SECRET", "").strip().lstrip("\ufeff")
 
 KEYWORDS = ["小可每日资讯", "自动驾驶推送"]
 
-DEFAULT_TOPICS = ("AI大模型", "自动驾驶")
+DEFAULT_TOPICS = ("AI大模型", "具身智能", "每日财经热点")
 MIN_TOPICS = 1
 MAX_TOPICS = 5
 
@@ -72,7 +72,7 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 )
 
-# 国内可访问的科技 RSS（Google News 不可达时回退）
+# 国内可访问的科技 / 财经 RSS（Google News 不可达时回退）
 FALLBACK_FEEDS = (
     "https://www.ithome.com/rss/",
     "https://36kr.com/feed",
@@ -99,22 +99,41 @@ TOPIC_SYNONYMS: dict[str, tuple[str, ...]] = {
         "LLM",
         "AIGC",
     ),
-    "自动驾驶": (
-        "自动驾驶",
-        "智能驾驶",
-        "智驾",
-        "无人驾驶",
-        "辅助驾驶",
-        "智能网联",
-        "Robotaxi",
-        "NOA",
-        "端到端",
-        "激光雷达",
-        "小鹏",
-        "理想汽车",
-        "蔚来",
-        "华为乾崑",
-        "特斯拉",
+    "具身智能": (
+        "具身智能",
+        "人形机器人",
+        "具身",
+        "灵巧手",
+        "四足机器人",
+        "工业机器人",
+        "Figure",
+        "优必选",
+        "智元",
+        "宇树",
+        "Tesla Bot",
+        "Optimus",
+        "机器人公司",
+    ),
+    "每日财经热点": (
+        "每日财经热点",
+        "财经",
+        "A股",
+        "港股",
+        "美股",
+        "股市",
+        "财报",
+        "央行",
+        "美联储",
+        "降息",
+        "加息",
+        "通胀",
+        "原油",
+        "黄金",
+        "纳斯达克",
+        "上证",
+        "创业板",
+        "融资",
+        "IPO",
     ),
 }
 

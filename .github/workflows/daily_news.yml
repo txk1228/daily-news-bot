@@ -29,4 +29,4 @@ jobs:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
         run: |
-          python scripts/news_bot.py --once --topics "AI大模型,自动驾驶"
+          python scripts/news_bot.py --once --topics "AI大模型,具身智能,每日财经热点"
