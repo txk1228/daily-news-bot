@@ -72,12 +72,29 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 )
 
-# 国内可访问的科技 / 财经 RSS（Google News 不可达时回退）
+# 国内可访问的科技 RSS（通用回退）
 FALLBACK_FEEDS = (
     "https://www.ithome.com/rss/",
     "https://36kr.com/feed",
     "https://www.solidot.org/index.rss",
 )
+
+# 特定主题优先源（专业站点 RSS，避免 Google 泛搜出地方杂讯）
+TOPIC_PRIMARY_FEEDS: dict[str, tuple[str, ...]] = {
+    "每日财经热点": (
+        "https://rss.huxiu.com/",
+        "https://36kr.com/feed",
+    ),
+}
+
+# Google News 检索词（不填则直接用主题名）
+TOPIC_SEARCH_QUERIES: dict[str, str] = {
+    "每日财经热点": (
+        "虎嗅 OR 华尔街见闻 OR 财联社 OR 第一财经 OR 界面新闻 OR 经济观察报"
+    ),
+    "具身智能": "具身智能 OR 人形机器人 OR 优必选 OR 智元 OR 宇树",
+    "AI大模型": "AI大模型 OR 大模型 OR DeepSeek OR OpenAI OR Kimi",
+}
 
 # 主题同义词：国内综合源标题很少出现完整主题词，需放宽过滤
 TOPIC_SYNONYMS: dict[str, tuple[str, ...]] = {
@@ -117,23 +134,23 @@ TOPIC_SYNONYMS: dict[str, tuple[str, ...]] = {
     "每日财经热点": (
         "每日财经热点",
         "财经",
+        "商业",
+        "消费",
+        "融资",
+        "IPO",
+        "财报",
+        "股市",
         "A股",
         "港股",
         "美股",
-        "股市",
-        "财报",
         "央行",
         "美联储",
         "降息",
         "加息",
         "通胀",
-        "原油",
-        "黄金",
-        "纳斯达克",
-        "上证",
-        "创业板",
-        "融资",
-        "IPO",
+        "虎嗅",
+        "华尔街见闻",
+        "财联社",
     ),
 }
 
@@ -303,11 +320,27 @@ def _match_keywords(text: str, keywords: tuple[str, ...]) -> bool:
 
 _fallback_feed_cache: dict[str, Any | None] = {}
 
+# Google / 杂讯标题黑名单（地方站、个人页等）
+_TITLE_BLOCKLIST = (
+    "个人中心",
+    "的个人主页",
+    "登录",
+    "注册",
+    "甘肃日报",
+    "兰州晚报",
+    "新甘肃",
+)
 
-def _load_fallback_feeds() -> list[tuple[str, Any]]:
-    """加载国内 RSS，同一次任务内复用缓存。"""
+
+def _is_junk_item(item: dict[str, str]) -> bool:
+    blob = f"{item.get('title', '')} {item.get('source', '')} {item.get('url', '')}"
+    return any(bad in blob for bad in _TITLE_BLOCKLIST)
+
+
+def _load_feeds(urls: tuple[str, ...]) -> list[tuple[str, Any]]:
+    """按 URL 列表加载 RSS，同一次任务内复用缓存。"""
     loaded: list[tuple[str, Any]] = []
-    for feed_url in FALLBACK_FEEDS:
+    for feed_url in urls:
         if feed_url not in _fallback_feed_cache:
             _fallback_feed_cache[feed_url] = _fetch_feed(feed_url)
         feed = _fallback_feed_cache[feed_url]
@@ -316,41 +349,93 @@ def _load_fallback_feeds() -> list[tuple[str, Any]]:
     return loaded
 
 
-def search_news_by_topic(topic: str, count: int = RSS_COUNT) -> list[dict[str, str]]:
-    """优先 Google News RSS，失败则回退到国内科技 RSS 并按主题关键词过滤。"""
-    keywords = topic_keywords(topic)
-
-    # 1) Google News（国内网络常不稳定，失败则快速回退）
-    google_url = google_news_rss_url(topic)
-    feed = _fetch_feed(google_url, retries=1)
-    if feed and feed.entries:
-        results = [_entry_to_item(e) for e in feed.entries[:count]]
-        logger.info("「%s」经 Google News 获取到 %d 条", topic, len(results))
-        return results
-
-    logger.info("「%s」Google News 不可用，改用国内 RSS 回退", topic)
-
-    # 2) 国内 RSS + 同义词过滤
+def _collect_from_feeds(
+    feed_pairs: list[tuple[str, Any]],
+    *,
+    keywords: tuple[str, ...] | None,
+    count: int,
+    seen_titles: set[str],
+) -> list[dict[str, str]]:
+    """从已加载 feed 收集条目；keywords 为 None 时不过滤。"""
     results: list[dict[str, str]] = []
-    seen_titles: set[str] = set()
-    for feed_url, feed in _load_fallback_feeds():
+    for feed_url, feed in feed_pairs:
         feed_title = getattr(feed.feed, "title", "") or feed_url
         for entry in feed.entries:
             item = _entry_to_item(entry, default_source=str(feed_title))
-            blob = f"{item['title']} {item['snippet']}"
-            if not _match_keywords(blob, keywords):
+            if _is_junk_item(item):
                 continue
+            if keywords is not None:
+                blob = f"{item['title']} {item['snippet']}"
+                if not _match_keywords(blob, keywords):
+                    continue
             title_key = item["title"].strip().lower()
-            if title_key in seen_titles:
+            if not title_key or title_key in seen_titles:
                 continue
             seen_titles.add(title_key)
             results.append(item)
             if len(results) >= count:
-                logger.info("「%s」经国内 RSS 获取到 %d 条", topic, len(results))
                 return results
-
-    logger.info("「%s」获取到 %d 条新闻", topic, len(results))
     return results
+
+
+def search_news_by_topic(topic: str, count: int = RSS_COUNT) -> list[dict[str, str]]:
+    """按主题拉新闻：专业源优先，再 Google，最后通用国内 RSS。"""
+    keywords = topic_keywords(topic)
+    seen_titles: set[str] = set()
+    results: list[dict[str, str]] = []
+
+    # 1) 主题专属专业源（如财经 → 虎嗅）
+    primary_urls = TOPIC_PRIMARY_FEEDS.get(topic)
+    if primary_urls:
+        # 虎嗅等专业源本身即垂类，不再强制关键词，避免误杀
+        primary_items = _collect_from_feeds(
+            _load_feeds(primary_urls),
+            keywords=None,
+            count=count,
+            seen_titles=seen_titles,
+        )
+        results.extend(primary_items)
+        if len(results) >= count:
+            logger.info("「%s」经专业源获取到 %d 条", topic, len(results))
+            return results[:count]
+        logger.info(
+            "「%s」专业源仅 %d 条，继续补充其他来源",
+            topic,
+            len(results),
+        )
+
+    # 2) Google News（可用主题定制检索词，避免泛搜出地方杂讯）
+    query = TOPIC_SEARCH_QUERIES.get(topic, topic)
+    google_url = google_news_rss_url(query)
+    feed = _fetch_feed(google_url, retries=1)
+    if feed and feed.entries:
+        for entry in feed.entries:
+            item = _entry_to_item(entry)
+            if _is_junk_item(item):
+                continue
+            title_key = item["title"].strip().lower()
+            if not title_key or title_key in seen_titles:
+                continue
+            seen_titles.add(title_key)
+            results.append(item)
+            if len(results) >= count:
+                break
+        if len(results) >= count:
+            logger.info("「%s」经 Google News 获取到 %d 条", topic, len(results))
+            return results[:count]
+
+    logger.info("「%s」改用国内通用 RSS 回退补充", topic)
+
+    # 3) 通用国内 RSS + 同义词过滤
+    more = _collect_from_feeds(
+        _load_feeds(FALLBACK_FEEDS),
+        keywords=keywords,
+        count=count - len(results),
+        seen_titles=seen_titles,
+    )
+    results.extend(more)
+    logger.info("「%s」获取到 %d 条新闻", topic, len(results))
+    return results[:count]
 
 
 def generate_sign(secret: str, timestamp: str) -> str:
@@ -385,20 +470,37 @@ def send_with_sign(content: str) -> dict[str, Any]:
         return {"code": -1, "msg": str(e)}
 
 
-def _format_item_line(item: dict[str, str]) -> str:
+def _format_item_line(item: dict[str, str], index: int) -> str:
+    """格式化为「1）标题 [来源] 🔗 链接」。"""
     title = (
         item["title"]
         .replace("【", "")
         .replace("】", "")
-        .replace("：", " ")
         .strip()
     )
-    snippet = clean_snippet(item["snippet"])
-    return f"{title} {snippet}🔗 {item['url']}".strip()
+    title = re.sub(r"\s*[-|｜]\s*[^\s\-｜]{1,24}$", "", title).strip() or item["title"].strip()
+    url = (item.get("url") or "").strip()
+    source = (item.get("source") or "").strip()
+
+    if "huxiu.com" in url:
+        source_label = "虎嗅"
+    elif "36kr.com" in url:
+        source_label = "36氪"
+    elif source and "个人" not in source and source not in title:
+        source_label = source
+    else:
+        source_label = ""
+
+    parts = [f"{index}）{title}"]
+    if source_label:
+        parts.append(f"[{source_label}]")
+    if url:
+        parts.append(f"🔗 {url}")
+    return " ".join(parts)
 
 
 def format_news_content(sections: list[tuple[str, list[dict[str, str]]]]) -> str:
-    """按主题列表格式化新闻内容。"""
+    """按主题列表格式化新闻内容（各板块 1）2）3）分点）。"""
     today = datetime.now().strftime("%Y 年 %m 月 %d 日")
     topic_labels = [topic for topic, _ in sections]
     header_topics = " & ".join(topic_labels)
@@ -410,8 +512,8 @@ def format_news_content(sections: list[tuple[str, list[dict[str, str]]]]) -> str
     for topic, news in sections:
         lines.extend(["", f"📌 {topic}"])
         if news:
-            for item in news:
-                lines.append(_format_item_line(item))
+            for i, item in enumerate(news, start=1):
+                lines.append(_format_item_line(item, i))
         else:
             lines.append("暂无最新资讯")
 
