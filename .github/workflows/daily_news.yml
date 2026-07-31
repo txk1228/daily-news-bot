@@ -2,8 +2,8 @@ name: Daily News Push
 
 on:
   schedule:
-    # 每天北京时间 08:30 执行 (UTC 00:30)
-    - cron: '30 0 * * *'
+    # 每天北京时间 07:30 执行（UTC 前一天 23:30）
+    - cron: '30 23 * * *'
   workflow_dispatch:  # 允许手动触发
 
 jobs:
