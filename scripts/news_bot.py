@@ -55,8 +55,8 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
-FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "").strip()
-FEISHU_SECRET = os.getenv("FEISHU_SECRET", "").strip()
+FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "").strip().lstrip("\ufeff")
+FEISHU_SECRET = os.getenv("FEISHU_SECRET", "").strip().lstrip("\ufeff")
 
 KEYWORDS = ["小可每日资讯", "自动驾驶推送"]
 
