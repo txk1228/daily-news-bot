@@ -79,6 +79,13 @@ python scripts/news_bot.py --once
 实拍效果图：
 
 ![飞书推送效果](assets/feishu-demo.png)
+![飞书推送效果](assets/0801.png)
+![飞书推送效果](assets/0802.png)
+![飞书推送效果](assets/0803.png)
+![飞书推送效果](assets/0804.png)
+
+
+
 
 ### 默认主题
 
